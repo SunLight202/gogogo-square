@@ -32,20 +32,39 @@ document.querySelectorAll("button").forEach(btn => {
 // ── Fullscreen ─────────────────────────────────────────────────────
 function resizeCanvas() {
     const isFS = !!document.fullscreenElement;
-    if (isFS) {
-        const hudH = document.getElementById("hud").offsetHeight;
-        const availH = window.innerHeight - hudH;
-        // Maintain exact 800x400 ratio — never stretch
-        const scale = Math.min(window.innerWidth / GAME_W, availH / GAME_H);
+    const isMobile = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+
+    if (isMobile) {
+        // Mobile: fit canvas into available space keeping 2:1 ratio
+        const hud    = document.getElementById("hud");
+        const touch  = document.getElementById("touch-controls");
+        const hudH   = hud   ? hud.offsetHeight   : 0;
+        const touchH = touch ? touch.offsetHeight  : 0;
+        const availW = window.innerWidth;
+        const availH = (window.innerHeight || document.documentElement.clientHeight) - hudH - touchH;
+        const scale  = Math.min(availW / GAME_W, availH / GAME_H);
         const w = Math.floor(GAME_W * scale);
         const h = Math.floor(GAME_H * scale);
         canvas.style.width  = w + "px";
         canvas.style.height = h + "px";
-        // HUD and game-container match canvas width exactly
+        // Touch bar fills full width
+        if (touch) touch.style.width = availW + "px";
+
+    } else if (isFS) {
+        // Desktop fullscreen: maintain ratio
+        const hudH  = document.getElementById("hud").offsetHeight;
+        const availH = window.innerHeight - hudH;
+        const scale  = Math.min(window.innerWidth / GAME_W, availH / GAME_H);
+        const w = Math.floor(GAME_W * scale);
+        const h = Math.floor(GAME_H * scale);
+        canvas.style.width  = w + "px";
+        canvas.style.height = h + "px";
         document.getElementById("hud").style.width = w + "px";
         const gc = document.getElementById("game-container");
         if (gc) { gc.style.width = w + "px"; gc.style.height = h + "px"; }
+
     } else {
+        // Desktop normal
         canvas.style.width  = GAME_W + "px";
         canvas.style.height = GAME_H + "px";
         document.getElementById("hud").style.width = "";
