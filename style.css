@@ -272,6 +272,7 @@ body {
         justify-content: flex-start;
         overflow: hidden;
         height: 100dvh;
+        background: #000;
     }
 
     #wrapper {
@@ -281,6 +282,8 @@ body {
         flex-direction: column;
         align-items: stretch;
         justify-content: flex-start;
+        background: #000;
+        gap: 0;
     }
 
     /* Compact HUD */
@@ -291,8 +294,9 @@ body {
         border-right: none;
         border-top: none;
         padding: 5px 10px;
-        gap: 6px;
+        gap: 4px;
         flex-shrink: 0;
+        flex-grow: 0;
     }
 
     .hud-label      { font-size: 5px; }
@@ -300,21 +304,31 @@ body {
     .hud-actions button { font-size: 6px; padding: 4px 7px; }
     #save-indicator { font-size: 11px; }
 
-    /* Canvas fills remaining space */
+    /* Canvas container — takes all space between HUD and touch bar */
     #game-container {
-        flex: 1;
+        flex: 1 1 0;
         width: 100%;
+        min-height: 0;
         overflow: hidden;
         display: flex;
         align-items: center;
         justify-content: center;
-        min-height: 0;
+        background: #000;
     }
 
     #gameCanvas {
-        /* JS will set width/height via resizeCanvas() */
         border-radius: 0 !important;
         border: none !important;
+        display: block;
+        flex-shrink: 0;
+    }
+
+    /* Touch bar sticks to bottom, no extra space */
+    #touch-controls {
+        flex-shrink: 0;
+        flex-grow: 0;
+        padding: 12px 20px 16px;
+        background: rgba(0,0,0,0.5);
     }
 }
 
