@@ -554,7 +554,10 @@ const player={
     dashTimer:0,           // frames of dash active
     dashCD:0,              // cooldown frames
     dashDir:1,             // direction of last dash
-    canDoubleJump:false
+    canDoubleJump:false,
+    blinkTimer:rnd(60,200)|0,  // frames until next blink
+    blinkFrame:0,              // 0=open, 1-3=closing/closed
+    scarfPoints:[]             // physics points for scarf
 };
 
 // ══════════════════════════════════════════════════════════════════
@@ -698,6 +701,8 @@ function spawnPlayer(){
     player.coyoteTimer=0;player.jumpBuffer=0;player.wantsJump=false;player.vineCD=0;
     player.canDoubleJump=false;player.dashTimer=0;player.dashCD=0;
     player.wallSliding=false;player.wallDir=0;player.wallJumpCD=0;
+    player.scarfPoints=[{x:player.x+20,y:player.y+8},{x:player.x+20,y:player.y+8},{x:player.x+20,y:player.y+8},{x:player.x+20,y:player.y+8}];
+    player.blinkTimer=(60+Math.random()*140)|0; player.blinkFrame=0;
     player.onIce=false;player.inWater=false;player.onVine=null;
     grappledVine=null;
 }
@@ -720,7 +725,7 @@ function updateHUD(){
     document.getElementById("level-value").textContent=(currentLevel+1);
     const bonusEl=document.getElementById("bonus-value");
     if(bonusEl) bonusEl.textContent='★'+totalBonusCoins+(totalBonusCoins%10>0?' ('+(10-totalBonusCoins%10)+')':'');
-    document.getElementById("lives-value").textContent="❤️".repeat(Math.max(0,lives));
+    document.getElementById("lives-value").textContent=lives>0?'❤ ×'+lives:'☠';
     const sv=document.getElementById("score-value");
     sv.classList.remove("score-pop");void sv.offsetWidth;sv.classList.add("score-pop");
 }
@@ -1106,7 +1111,9 @@ function update(){
         player.vy=jumpF;
         player.coyoteTimer=0;player.jumpBuffer=0;player.wantsJump=false;player.vineCD=0;
     player.canDoubleJump=false;player.dashTimer=0;player.dashCD=0;
-    player.wallSliding=false;player.wallDir=0;player.wallJumpCD=0;player.isGrounded=false;
+    player.wallSliding=false;player.wallDir=0;player.wallJumpCD=0;
+    player.scarfPoints=[{x:player.x+20,y:player.y+8},{x:player.x+20,y:player.y+8},{x:player.x+20,y:player.y+8},{x:player.x+20,y:player.y+8}];
+    player.blinkTimer=(60+Math.random()*140)|0; player.blinkFrame=0;player.isGrounded=false;
         player.sx=0.7;player.sy=1.4;
         spawnJumpP(player.x,player.y);
     }
@@ -1850,58 +1857,136 @@ function drawParticles(){
 function drawPlayer(){
     if(player.invincible>0&&Math.floor(player.invincible/5)%2===0)return;
 
-    // Water tint overlay
-    if(player.inWater){
-        ctx.globalAlpha=0.3;ctx.fillStyle="#0080ff";
-        ctx.fillRect(sx(player.x),player.y,player.width,player.height);
-        ctx.globalAlpha=1;
+    // ── Scarf physics simulation ─────────────────────────
+    // ── Foulard ninja — physique en coordonnées MONDE ──────
+    // Anchor = côté opposé à la direction de marche (le foulard flotte derrière)
+    const anchorWX = player.x + (player.facingRight ? player.width*0.25 : player.width*0.75);
+    const anchorWY = player.y + player.height*0.18;
+
+    if(!player.scarfPoints||player.scarfPoints.length<4)
+        player.scarfPoints=[
+            {x:anchorWX,y:anchorWY,vx:0,vy:0},
+            {x:anchorWX,y:anchorWY,vx:0,vy:0},
+            {x:anchorWX,y:anchorWY,vx:0,vy:0},
+            {x:anchorWX,y:anchorWY,vx:0,vy:0}
+        ];
+    const sp=player.scarfPoints;
+
+    // Point 0 suit l'ancre exactement
+    sp[0].x=anchorWX; sp[0].y=anchorWY;
+
+    // Vélocité de référence du joueur (force opposée = le foulard traîne derrière)
+    const dragX = -player.vx * 0.35;  // oppose le mouvement horizontal
+    const dragY = -player.vy * 0.15 + 0.4; // légère gravité + oppose le mouvement vertical
+    const wind  = (levelData&&levelData.wind?levelData.wind:0)*0.4;
+
+    const SEG_LEN = 11; // longueur cible de chaque segment
+
+    for(let i=1;i<4;i++){
+        const prev=sp[i-1];
+        // Appliquer forces : drag + vent + gravité légère
+        sp[i].vx += (dragX + wind) * 0.18;
+        sp[i].vy += dragY * 0.18 + 0.05;
+        // Amortissement (air resistance)
+        sp[i].vx *= 0.82;
+        sp[i].vy *= 0.82;
+        // Déplacer
+        sp[i].x += sp[i].vx;
+        sp[i].y += sp[i].vy;
+        // Contrainte de longueur : garder chaque segment à SEG_LEN px du précédent
+        const dx2=sp[i].x-prev.x, dy2=sp[i].y-prev.y;
+        const dist=Math.sqrt(dx2*dx2+dy2*dy2)||1;
+        const diff=(dist-SEG_LEN)/dist;
+        sp[i].x -= dx2*diff*0.5;
+        sp[i].y -= dy2*diff*0.5;
     }
 
-    for(const t of player.trail){
-        ctx.globalAlpha=Math.max(0,t.alpha);ctx.fillStyle="#ff5252";
-        ctx.fillRect(sx(t.x),t.y,player.width,player.height);
+    // Dessin du foulard (convertir world→screen uniquement ici)
+    ctx.save();
+    ctx.lineCap='round';
+    for(let i=1;i<4;i++){
+        const t=(i-1)/3;
+        ctx.strokeStyle=`rgba(240,190,0,${0.92-t*0.25})`; // JAUNE DORÉ
+        ctx.lineWidth=Math.max(1,5-i*1.2);
+        ctx.beginPath();
+        ctx.moveTo(sx(sp[i-1].x),sp[i-1].y);
+        ctx.lineTo(sx(sp[i].x),sp[i].y);
+        ctx.stroke();
     }
+    // Embout du foulard
+    ctx.fillStyle='rgba(255,210,0,0.85)';
+    ctx.beginPath();ctx.arc(sx(sp[3].x),sp[3].y,2.5,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+
+    // Water tint
+    if(player.inWater){ctx.globalAlpha=0.3;ctx.fillStyle="#0080ff";ctx.fillRect(sx(player.x),player.y,player.width,player.height);ctx.globalAlpha=1;}
+
+    // Trail
+    for(const t of player.trail){ctx.globalAlpha=Math.max(0,t.alpha);ctx.fillStyle="#ff5252";ctx.fillRect(sx(t.x),t.y,player.width,player.height);}
     ctx.globalAlpha=1;
 
     const dw=player.width*player.sx,dh=player.height*player.sy;
     const dx=sx(player.x)+(player.width-dw)/2;
     const dy=player.y+(player.height-dh);
 
+    // Shadow
     ctx.fillStyle="rgba(0,0,0,0.2)";ctx.beginPath();
     ctx.ellipse(sx(player.x)+player.width/2,player.y+player.height+2,dw*0.5,4,0,0,Math.PI*2);ctx.fill();
 
+    // Body
     const bg=ctx.createLinearGradient(dx,dy,dx+dw,dy+dh);
     bg.addColorStop(0,"#f04870");bg.addColorStop(1,"#e8204a");
     ctx.fillStyle=bg;
     ctx.beginPath();
-    if(ctx.roundRect)ctx.roundRect(dx,dy,dw,dh,6*player.sx);
-    else ctx.rect(dx,dy,dw,dh);
-    ctx.fill();
+    if(ctx.roundRect)ctx.roundRect(dx,dy,dw,dh,6*player.sx);else ctx.rect(dx,dy,dw,dh);ctx.fill();
+    ctx.fillStyle="rgba(255,255,255,0.18)";ctx.beginPath();
+    if(ctx.roundRect)ctx.roundRect(dx+3,dy+3,dw*0.4,dh*0.22,3);else ctx.rect(dx+3,dy+3,dw*0.4,dh*0.22);ctx.fill();
 
-    ctx.fillStyle="rgba(255,255,255,0.2)";ctx.beginPath();
-    if(ctx.roundRect)ctx.roundRect(dx+3,dy+3,dw*0.4,dh*0.25,3);
-    else ctx.rect(dx+3,dy+3,dw*0.4,dh*0.25);
-    ctx.fill();
+    // ── Blink animation ──────────────────────────────────
+    player.blinkTimer--;
+    if(player.blinkTimer<=0){
+        player.blinkFrame++;
+        if(player.blinkFrame>=5){player.blinkFrame=0;player.blinkTimer=(80+Math.random()*160)|0;}
+        else player.blinkTimer=3;
+    }
+    const blinking=player.blinkFrame>0&&player.blinkFrame<4;
+    const eyeH=blinking?Math.max(1,6*player.sy*(1-player.blinkFrame*0.3)):6*player.sy;
 
+    // Eyes
     const eb=player.facingRight?dw*0.5:0,ey=dy+dh*0.2;
     ctx.fillStyle="white";
-    ctx.fillRect(dx+eb+3,ey,6*player.sx,6*player.sy);
-    ctx.fillRect(dx+eb+13,ey,6*player.sx,6*player.sy);
-    ctx.fillStyle="#1a1a2e";
-    const ld=player.facingRight?2:-1;
-    ctx.fillRect(dx+eb+3+ld,ey+1,3*player.sx,4*player.sy);
-    ctx.fillRect(dx+eb+13+ld,ey+1,3*player.sx,4*player.sy);
+    if(!blinking){
+        ctx.fillRect(dx+eb+3,ey,6*player.sx,eyeH);
+        ctx.fillRect(dx+eb+13,ey,6*player.sx,eyeH);
+    } else {
+        ctx.fillRect(dx+eb+3,ey+eyeH/2,6*player.sx,Math.max(1,eyeH));
+        ctx.fillRect(dx+eb+13,ey+eyeH/2,6*player.sx,Math.max(1,eyeH));
+    }
+    if(!blinking){
+        ctx.fillStyle="#1a1a2e";
+        const ld=player.facingRight?2:-1;
+        ctx.fillRect(dx+eb+3+ld,ey+1,3*player.sx,4*player.sy);
+        ctx.fillRect(dx+eb+13+ld,ey+1,3*player.sx,4*player.sy);
+    }
 
+    // Ninja headband — jaune doré comme le foulard
+    ctx.fillStyle='#d4a017';
+    ctx.fillRect(dx+2,dy+dh*0.08,dw-4,5*player.sy);
+    ctx.fillStyle='rgba(255,230,80,0.6)';
+    ctx.fillRect(dx+2,dy+dh*0.08,dw-4,2);
+
+    // Legs
     if(player.isGrounded&&player.onVine===null){
         const lf=[0,5,0,-5][player.walkFrame];
         ctx.fillStyle="#c62828";
         ctx.fillRect(dx+4,dy+dh,10,5+lf);ctx.fillRect(dx+dw-14,dy+dh,10,5-lf);
     }
+    if(player.onVine){ctx.fillStyle="#8B4513";ctx.fillRect(dx+2,dy+4,8,6);ctx.fillRect(dx+dw-10,dy+4,8,6);}
 
-    // On vine: show grip hands
-    if(player.onVine){
-        ctx.fillStyle="#8B4513";
-        ctx.fillRect(dx+2,dy+4,8,6);ctx.fillRect(dx+dw-10,dy+4,8,6);
+    // Wall slide dust
+    if(player.wallSliding){
+        ctx.fillStyle='rgba(255,220,160,0.6)';
+        ctx.beginPath();ctx.arc(dx+(player.wallDir<0?0:dw),dy+dh*0.7,4+Math.random()*3,0,Math.PI*2);ctx.fill();
     }
 }
 
@@ -2106,6 +2191,189 @@ function drawParallax(){
 // PARALLAX BACKGROUNDS — mountain / tree silhouettes per theme
 // ══════════════════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════════════════
+
+
+function drawLivingDecor(){
+    const theme=levelData?levelData.theme:'prairie';
+    const t=Date.now()/1000;
+    const wind=levelData&&levelData.wind?levelData.wind:0;
+
+    if(theme==='prairie'||theme==='jungle'){
+        // Grass blades along ground and platform tops
+        ctx.strokeStyle=theme==='jungle'?'rgba(30,160,30,0.7)':'rgba(80,160,40,0.65)';
+        const bladeCount=Math.ceil(CW()/12);
+        for(let i=0;i<bladeCount;i++){
+            const bx=(i*12-(cameraX%12));
+            const sway=Math.sin(t*2+i*0.7+wind)*3+wind*2;
+            const h=4+Math.sin(i*3.7)*3;
+            ctx.lineWidth=1.5;
+            ctx.beginPath();ctx.moveTo(bx,FLOOR());
+            ctx.quadraticCurveTo(bx+sway,FLOOR()-h*0.5,bx+sway*1.5,FLOOR()-h);
+            ctx.stroke();
+        }
+        // Grass on platform tops
+        for(const plat of platforms){
+            const rx=sx(plat.x);
+            const pw=plat.w||plat.width||80;
+            if(rx>CW()+10||rx+pw<-10)continue;
+            for(let i=0;i<Math.ceil(pw/10);i++){
+                const bx=rx+i*10+5;
+                const sway=Math.sin(t*2+bx*0.5+wind)*2;
+                const h=3+Math.sin(bx)*2;
+                ctx.beginPath();ctx.moveTo(bx,plat.y);
+                ctx.quadraticCurveTo(bx+sway,plat.y-h*0.5,bx+sway*1.2,plat.y-h);
+                ctx.stroke();
+            }
+        }
+    }
+
+    if(theme==='volcano'){
+        // Cracks on platforms
+        ctx.strokeStyle='rgba(80,20,0,0.5)';ctx.lineWidth=1;
+        for(const plat of platforms){
+            const rx=sx(plat.x);
+            const pw=plat.w||plat.width||80;
+            if(rx>CW()||rx+pw<0)continue;
+            // Deterministic cracks based on position
+            const seed=plat.x;
+            for(let c=0;c<3;c++){
+                const cx=rx+pw*(0.2+c*0.3+Math.sin(seed+c)*0.1);
+                const cy=plat.y+3;
+                ctx.beginPath();ctx.moveTo(cx,cy);
+                ctx.lineTo(cx+Math.sin(seed+c*2)*6,cy+5);
+                ctx.lineTo(cx+Math.sin(seed+c*3)*4,cy+9);ctx.stroke();
+            }
+        }
+    }
+
+    if(theme==='cave'){
+        // Moss patches on platforms
+        ctx.fillStyle='rgba(40,100,40,0.35)';
+        for(const plat of platforms){
+            const rx=sx(plat.x);
+            const pw=plat.w||plat.width||80;
+            if(rx>CW()||rx+pw<0)continue;
+            const seed=plat.x*0.01;
+            for(let m=0;m<4;m++){
+                const mx=rx+pw*(0.1+m*0.22+Math.sin(seed+m)*0.08);
+                const mw=8+Math.sin(seed*m)*4;
+                ctx.beginPath();ctx.ellipse(mx,plat.y+2,mw,4,0,0,Math.PI*2);ctx.fill();
+            }
+        }
+        // Water drips from ceiling
+        ctx.fillStyle='rgba(100,180,255,0.4)';
+        const drip=Math.floor(t*3)%20;
+        for(let i=0;i<8;i++){
+            const dx=(i*137+50-cameraX*0.3)%CW();
+            const dy=(t*60+i*50)%200;
+            ctx.beginPath();ctx.ellipse(dx,dy,2,4+Math.sin(t+i)*2,0,0,Math.PI*2);ctx.fill();
+        }
+    }
+
+    if(theme==='snow'){
+        // Ice sparkles on platforms
+        const sparkT=Math.floor(t*4);
+        for(const plat of platforms){
+            const rx=sx(plat.x);
+            const pw=plat.w||plat.width||80;
+            if(rx>CW()||rx+pw<0)continue;
+            for(let s=0;s<3;s++){
+                const sx2=rx+pw*(0.25+s*0.25);
+                const sparkle=(sparkT+plat.x+s)%6===0;
+                if(sparkle){
+                    ctx.fillStyle='rgba(200,240,255,0.9)';
+                    ctx.beginPath();ctx.arc(sx2,plat.y-2,3,0,Math.PI*2);ctx.fill();
+                    ctx.strokeStyle='rgba(200,240,255,0.6)';ctx.lineWidth=1;
+                    ctx.beginPath();
+                    ctx.moveTo(sx2-5,plat.y-2);ctx.lineTo(sx2+5,plat.y-2);ctx.stroke();
+                    ctx.moveTo(sx2,plat.y-7);ctx.lineTo(sx2,plat.y+3);ctx.stroke();
+                }
+            }
+        }
+    }
+}
+
+function drawDynamicLights(){
+    const theme=levelData?levelData.theme:'prairie';
+    const px=sx(player.x)+player.width/2;
+    const py=player.y+player.height/2;
+
+    // ── Dark levels: player halo ─────────────────────────
+    if(theme==='cave'||theme==='haunted'){
+        // Darken entire scene then punch hole with radial gradient
+        ctx.save();
+        ctx.fillStyle='rgba(0,0,0,0.72)';
+        ctx.fillRect(0,-500,CW(),CH()+1000);
+        // Light halo around player
+        const radius=Math.round(CW()*0.22)+Math.sin(Date.now()/600)*8;
+        const haloGrad=ctx.createRadialGradient(px,py,0,px,py,radius);
+        haloGrad.addColorStop(0,'rgba(0,0,0,0)');
+        haloGrad.addColorStop(0.55,'rgba(0,0,0,0)');
+        haloGrad.addColorStop(1,'rgba(0,0,0,0.72)');
+        ctx.globalCompositeOperation='destination-out';
+        ctx.fillStyle=haloGrad;
+        ctx.beginPath();ctx.arc(px,py,radius,0,Math.PI*2);ctx.fill();
+        ctx.globalCompositeOperation='source-over';
+        // Warm light tint
+        const warmGrad=ctx.createRadialGradient(px,py,0,px,py,radius*0.6);
+        warmGrad.addColorStop(0,theme==='cave'?'rgba(255,180,80,0.12)':'rgba(180,100,255,0.1)');
+        warmGrad.addColorStop(1,'rgba(0,0,0,0)');
+        ctx.fillStyle=warmGrad;
+        ctx.beginPath();ctx.arc(px,py,radius*0.6,0,Math.PI*2);ctx.fill();
+        // Torch lights for cave
+        if(theme==='cave'){
+            for(const torch of (levelData.torches||[])){
+                const tx=sx(torch.x);
+                if(Math.abs(tx-px)>CW())continue;
+                const tGrad=ctx.createRadialGradient(tx,FLOOR()-30,0,tx,FLOOR()-30,120);
+                tGrad.addColorStop(0,'rgba(255,160,40,0.18)');
+                tGrad.addColorStop(1,'rgba(0,0,0,0)');
+                ctx.fillStyle=tGrad;
+                ctx.beginPath();ctx.arc(tx,FLOOR()-30,120,0,Math.PI*2);ctx.fill();
+            }
+        }
+        ctx.restore();
+    }
+
+    // ── Bright levels: God Rays ───────────────────────────
+    if(theme==='jungle'||theme==='sky'||theme==='prairie'){
+        const t=Date.now()/4000;
+        ctx.save();
+        ctx.globalAlpha=0.07;
+        for(let i=0;i<5;i++){
+            const angle=-0.3+i*0.15+Math.sin(t+i*1.2)*0.05;
+            const startX=CW()*(0.2+i*0.15)+Math.sin(t*0.7+i)*30;
+            const len=CH()*1.8;
+            const width=CW()*0.08+Math.sin(t+i)*20;
+            const grad=ctx.createLinearGradient(startX,-200,startX+Math.sin(angle)*len,len);
+            grad.addColorStop(0,'rgba(255,255,200,0.9)');
+            grad.addColorStop(1,'rgba(255,255,200,0)');
+            ctx.fillStyle=grad;
+            ctx.save();
+            ctx.translate(startX,-200);
+            ctx.rotate(angle);
+            ctx.fillRect(-width/2,0,width,len);
+            ctx.restore();
+        }
+        ctx.restore();
+    }
+
+    // ── Volcano: lava glow pulses ─────────────────────────
+    if(theme==='volcano'){
+        const t=Date.now()/800;
+        for(const lr of lavaRivers){
+            const rx=sx(lr.x);
+            if(rx>CW()+200||rx+lr.w<-200)continue;
+            const pulse=0.25+Math.sin(t)*0.1;
+            const lavGrad=ctx.createLinearGradient(rx,lr.y-60,rx,lr.y);
+            lavGrad.addColorStop(0,'rgba(255,80,0,0)');
+            lavGrad.addColorStop(1,`rgba(255,80,0,${pulse})`);
+            ctx.fillStyle=lavGrad;
+            ctx.fillRect(rx,lr.y-60,lr.w,60);
+        }
+    }
+}
+
 // MAIN DRAW
 // ══════════════════════════════════════════════════════════════════
 function draw(){
@@ -2126,6 +2394,7 @@ function draw(){
     drawSpecials();
     drawPlatforms();
     drawMovingPlatforms();
+    drawLivingDecor();
     drawBonusCoins();
     drawCoins();
     drawEnemies();
@@ -2135,6 +2404,7 @@ function draw(){
     drawParticles();
     drawWeather();
     drawPlayer();
+    drawDynamicLights();
     drawFloatingTexts();
     ctx.restore(); // annule le décalage pour l'UI
 
