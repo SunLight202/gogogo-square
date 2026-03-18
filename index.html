@@ -23,6 +23,10 @@
                 <span class="hud-label">VIES</span>
                 <span id="lives-value">❤️❤️❤️</span>
             </div>
+            <div class="hud-block">
+                <span class="hud-label">BONUS</span>
+                <span id="bonus-value">★0</span>
+            </div>
             <div class="hud-actions">
                 <span id="save-indicator" title="Progression sauvegardée">💾</span>
                 <button id="btn-pause" tabindex="-1">⏸ Pause</button>
@@ -51,12 +55,19 @@
 </div>
             </div>
             <div id="touch-right">
+                <div id="btn-dash" class="touch-btn touch-dash">
+                  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <polyline points="12 5 19 12 12 19"></polyline>
+                  </svg>
+                  <span>DASH</span>
+                </div>
                 <div id="btn-jump" class="touch-btn touch-jump">
-  <svg viewBox="0 0 24 24" width="30" height="30" fill="none">
-    <polygon points="12,4 22,20 2,20" fill="currentColor"/>
-  </svg>
-  <span>SAUT</span>
-</div>
+                  <svg viewBox="0 0 24 24" width="30" height="30" fill="none">
+                    <polygon points="12,4 22,20 2,20" fill="currentColor"/>
+                  </svg>
+                  <span>SAUT</span>
+                </div>
             </div>
         </div>
 
