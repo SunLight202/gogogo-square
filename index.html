@@ -28,23 +28,22 @@
                 <button id="btn-pause" tabindex="-1">⏸ Pause</button>
                 <button id="btn-restart" tabindex="-1">↺ Restart</button>
                 <button id="btn-clear-save" tabindex="-1">🗑 Effacer</button>
-                <button id="btn-fullscreen" tabindex="-1">⛶ Plein écran</button>
+                <button id="btn-fullscreen" tabindex="-1" class="desktop-only">⛶ Plein écran</button>
             </div>
         </div>
 
-        <!-- Canvas + touch controls in same container -->
         <div id="game-container">
             <canvas id="gameCanvas" width="800" height="400"></canvas>
+        </div>
 
-            <!-- Mobile touch controls — overlaid on canvas -->
-            <div id="touch-controls">
-                <div id="touch-left">
-                    <div id="btn-left" class="touch-btn">◀</div>
-                    <div id="btn-right" class="touch-btn">▶</div>
-                </div>
-                <div id="touch-right">
-                    <div id="btn-jump" class="touch-btn touch-jump">▲</div>
-                </div>
+        <!-- Touch controls — outside canvas, always visible on mobile -->
+        <div id="touch-controls">
+            <div id="touch-left">
+                <div id="btn-left"  class="touch-btn">◀</div>
+                <div id="btn-right" class="touch-btn">▶</div>
+            </div>
+            <div id="touch-right">
+                <div id="btn-jump" class="touch-btn touch-jump">▲<span>SAUT</span></div>
             </div>
         </div>
 
