@@ -366,3 +366,22 @@ body {
 @media (hover: hover) and (pointer: fine) {
     #touch-controls { display: none !important; }
 }
+
+/* ── DASH BUTTON ────────────────────────────────────────────────── */
+.touch-dash {
+    width: 62px;
+    height: 62px;
+    font-size: 18px;
+    background: rgba(100, 200, 255, 0.15);
+    border-color: rgba(100, 200, 255, 0.55);
+    color: rgba(150, 220, 255, 0.95);
+}
+.touch-dash.pressed {
+    background: rgba(100, 200, 255, 0.45);
+    border-color: rgba(150, 230, 255, 0.9);
+}
+#touch-right {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+}
