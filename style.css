@@ -385,3 +385,61 @@ body {
     gap: 10px;
     align-items: flex-end;
 }
+
+/* ══════════════════════════════════════════════════════
+   FILTRE CRT RÉTRO — scanlines + vignette + bombe
+   ══════════════════════════════════════════════════════ */
+
+/* CRT wrapper overlay — sits on top of the canvas */
+#crt-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 10;
+    border-radius: inherit;
+    overflow: hidden;
+}
+
+/* Scanlines */
+#crt-overlay::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+        0deg,
+        rgba(0,0,0,0) 0px,
+        rgba(0,0,0,0) 2px,
+        rgba(0,0,0,0.08) 2px,
+        rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+}
+
+/* Vignette + subtle border glow */
+#crt-overlay::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(
+        ellipse at center,
+        transparent 55%,
+        rgba(0,0,0,0.45) 100%
+    );
+    pointer-events: none;
+}
+
+/* Subtle phosphor flicker */
+@keyframes crtFlicker {
+    0%,100% { opacity: 1; }
+    92% { opacity: 1; }
+    93% { opacity: 0.96; }
+    94% { opacity: 1; }
+    97% { opacity: 0.98; }
+}
+#game-container {
+    animation: crtFlicker 8s infinite;
+}
+
+/* Curved screen — subtle barrel distortion via SVG filter */
+#game-container {
+    filter: url(#crt-barrel);
+}
