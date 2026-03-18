@@ -1,0 +1,262 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+:root {
+    --accent: #f7c948;
+    --ui-bg: rgba(15, 12, 41, 0.92);
+    --ui-border: rgba(247, 201, 72, 0.35);
+    --text: #f0e6d3;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow: hidden;
+}
+
+#wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    /* Normal mode: fixed 800px wide */
+    width: 800px;
+}
+
+/* HUD */
+#hud {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--ui-bg);
+    border: 2px solid var(--ui-border);
+    border-bottom: none;
+    border-radius: 12px 12px 0 0;
+    padding: 8px 20px;
+    backdrop-filter: blur(8px);
+    gap: 12px;
+}
+
+.hud-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 80px;
+}
+
+.hud-label {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    color: var(--accent);
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+    opacity: 0.8;
+}
+
+#score-value, #level-value, #lives-value {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 12px;
+    color: var(--text);
+}
+
+.hud-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* Buttons never steal keyboard focus */
+.hud-actions button {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    padding: 6px 10px;
+    background: rgba(247, 201, 72, 0.12);
+    color: var(--accent);
+    border: 1px solid var(--ui-border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    white-space: nowrap;
+    outline: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.hud-actions button:focus { outline: none; }
+.hud-actions button:hover {
+    background: rgba(247, 201, 72, 0.25);
+    transform: translateY(-1px);
+}
+.hud-actions button:active { transform: translateY(0); }
+
+/* Canvas — fills wrapper width, height auto-scales via JS */
+#gameCanvas {
+    display: block;
+    width: 800px;
+    height: 400px;
+    border: 2px solid var(--ui-border);
+    border-top: none;
+    border-radius: 0 0 12px 12px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    cursor: none;
+    image-rendering: auto;
+    /* Smooth scaling in fullscreen */
+    -webkit-interpolation-mode: bicubic;
+}
+
+/* Controls hint */
+#controls-hint {
+    margin-top: 10px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    color: rgba(240, 230, 211, 0.3);
+    letter-spacing: 1px;
+    text-align: center;
+}
+
+/* ── FULLSCREEN ─────────────────────────────── */
+/* When the page goes fullscreen, stretch everything */
+:fullscreen body,
+:-webkit-full-screen body {
+    background: #000;
+    align-items: center;
+    justify-content: center;
+}
+:fullscreen #wrapper,
+:-webkit-full-screen #wrapper {
+    /* Let wrapper be only as wide as the canvas — JS sets canvas size */
+    width: auto;
+    height: 100vh;
+    border-radius: 0;
+    justify-content: center;
+    align-items: center;
+}
+:fullscreen #hud,
+:-webkit-full-screen #hud {
+    border-radius: 0;
+    /* Match canvas width — set dynamically by JS */
+    width: auto;
+}
+:fullscreen #gameCanvas,
+:-webkit-full-screen #gameCanvas {
+    border-radius: 0;
+    border: none;
+    /* width & height set by JS resizeCanvas() — never override here */
+}
+:fullscreen #controls-hint,
+:-webkit-full-screen #controls-hint {
+    display: none;
+}
+
+/* Score pop */
+@keyframes scorePop {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.5); color: var(--accent); }
+    100% { transform: scale(1); }
+}
+.score-pop { animation: scorePop 0.3s ease-out; }
+
+/* Save indicator */
+#save-indicator {
+    font-size: 14px;
+    opacity: 0.25;
+    transition: opacity 0.3s;
+    cursor: default;
+    user-select: none;
+}
+@keyframes saveFlash {
+    0%   { opacity: 0.25; transform: scale(1); }
+    30%  { opacity: 1;    transform: scale(1.5); filter: drop-shadow(0 0 6px #f7c948); }
+    100% { opacity: 0.35; transform: scale(1); }
+}
+.save-flash { animation: saveFlash 1.2s ease-out forwards; }
+
+/* ── GAME CONTAINER (canvas + touch overlay) ────────────────────── */
+#game-container {
+    position: relative;
+    display: block;
+    line-height: 0; /* removes phantom gap under canvas */
+}
+
+/* ── TOUCH CONTROLS ─────────────────────────────────────────────── */
+#touch-controls {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 100%;
+    pointer-events: none; /* let canvas receive non-touch events */
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 12px 16px;
+    box-sizing: border-box;
+    /* Hidden on desktop, shown on touch devices */
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+/* Show touch controls on touch devices */
+@media (hover: none) and (pointer: coarse) {
+    #touch-controls { opacity: 1; }
+    #controls-hint  { display: none; }
+}
+
+#touch-left {
+    display: flex;
+    gap: 10px;
+    pointer-events: all;
+}
+
+#touch-right {
+    pointer-events: all;
+}
+
+.touch-btn {
+    width: 60px;
+    height: 60px;
+    background: rgba(247, 201, 72, 0.18);
+    border: 2px solid rgba(247, 201, 72, 0.5);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    color: rgba(247, 201, 72, 0.9);
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    cursor: pointer;
+    transition: background 0.1s, transform 0.1s;
+    font-family: sans-serif;
+}
+
+.touch-btn:active,
+.touch-btn.pressed {
+    background: rgba(247, 201, 72, 0.45);
+    transform: scale(0.92);
+}
+
+.touch-jump {
+    width: 70px;
+    height: 70px;
+    font-size: 26px;
+    background: rgba(255, 100, 100, 0.2);
+    border-color: rgba(255, 100, 100, 0.6);
+    color: rgba(255, 150, 150, 0.95);
+}
+
+.touch-jump.pressed {
+    background: rgba(255, 100, 100, 0.5);
+}
+
+/* On very small screens, scale HUD text down */
+@media (max-width: 500px) {
+    .hud-label  { font-size: 5px; }
+    #score-value, #level-value, #lives-value { font-size: 9px; }
+    .hud-actions button { font-size: 6px; padding: 4px 6px; }
+}
