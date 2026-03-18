@@ -31,28 +31,44 @@ document.querySelectorAll("button").forEach(btn => {
 
 // ── Fullscreen ─────────────────────────────────────────────────────
 function resizeCanvas() {
-    const isFS = !!document.fullscreenElement;
+    const isFS     = !!document.fullscreenElement;
     const isMobile = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
 
     if (isMobile) {
-        // Mobile: fit canvas into available space keeping 2:1 ratio
-        const hud    = document.getElementById("hud");
-        const touch  = document.getElementById("touch-controls");
-        const hudH   = hud   ? hud.offsetHeight   : 0;
-        const touchH = touch ? touch.offsetHeight  : 0;
-        const availW = window.innerWidth;
-        const availH = (window.innerHeight || document.documentElement.clientHeight) - hudH - touchH;
-        const scale  = Math.min(availW / GAME_W, availH / GAME_H);
+        // On mobile, first render the touch bar at its natural size,
+        // then use whatever height is left for the canvas.
+        const hud   = document.getElementById("hud");
+        const touch = document.getElementById("touch-controls");
+
+        // Let the touch bar size itself naturally first
+        if (touch) { touch.style.height = ""; }
+
+        const screenW = window.innerWidth;
+        const screenH = window.innerHeight
+                     || document.documentElement.clientHeight;
+        const hudH    = hud   ? hud.getBoundingClientRect().height   : 0;
+        const touchH  = touch ? touch.getBoundingClientRect().height : 100;
+
+        const availW = screenW;
+        const availH = screenH - hudH - touchH;
+
+        // Scale canvas to fill available area while keeping 2:1 ratio
+        const scale = Math.min(availW / GAME_W, availH / GAME_H);
         const w = Math.floor(GAME_W * scale);
         const h = Math.floor(GAME_H * scale);
+
         canvas.style.width  = w + "px";
         canvas.style.height = h + "px";
-        // Touch bar fills full width
-        if (touch) touch.style.width = availW + "px";
+
+        // Game container fills available height so canvas is centered
+        const gc = document.getElementById("game-container");
+        if (gc) {
+            gc.style.width  = screenW + "px";
+            gc.style.height = availH + "px";
+        }
 
     } else if (isFS) {
-        // Desktop fullscreen: maintain ratio
-        const hudH  = document.getElementById("hud").offsetHeight;
+        const hudH   = document.getElementById("hud").offsetHeight;
         const availH = window.innerHeight - hudH;
         const scale  = Math.min(window.innerWidth / GAME_W, availH / GAME_H);
         const w = Math.floor(GAME_W * scale);
@@ -64,7 +80,6 @@ function resizeCanvas() {
         if (gc) { gc.style.width = w + "px"; gc.style.height = h + "px"; }
 
     } else {
-        // Desktop normal
         canvas.style.width  = GAME_W + "px";
         canvas.style.height = GAME_H + "px";
         document.getElementById("hud").style.width = "";
