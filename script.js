@@ -50,7 +50,9 @@ function resizeCanvas() {
         const touchH  = touch ? touch.getBoundingClientRect().height : 100;
 
         const availW = screenW;
-        const availH = screenH - hudH - touchH;
+        // Give touch bar a fixed budget so canvas gets maximum space
+        const touchBudget = Math.min(touchH, screenH * 0.15);
+        const availH = screenH - hudH - touchBudget;
 
         // Scale canvas to fill available area while keeping 2:1 ratio
         const scale = Math.min(availW / GAME_W, availH / GAME_H);
@@ -107,9 +109,9 @@ const LEVEL_DEFS = [
 {
     name: "Plaine Verte", levelWidth: 2400,
     theme: "prairie",
-    bgColors: ["#1a1a2e","#16213e","#0f3460"], skyStars: true,
-    groundColor: "#2d5016", groundTop: "#4a7c28",
-    platformColor: "#5c3d2e", platformTopColor: "#7d5544",
+    bgColors: ["#0d0d2b","#1a1060","#2d1b8e"], skyStars: true,
+    groundColor: "#1e6b0a", groundTop: "#5a9e1a",
+    platformColor: "#7a4a20", platformTopColor: "#a06030",
     platforms: [
         {x:150,y:280,w:120,h:20},{x:350,y:200,w:120,h:20},{x:550,y:120,w:100,h:20},
         {x:800,y:240,w:150,h:20},{x:1100,y:170,w:100,h:20},{x:1350,y:110,w:120,h:20},
@@ -134,7 +136,7 @@ const LEVEL_DEFS = [
 {
     name: "Toundra Glacée", levelWidth: 2600,
     theme: "snow",
-    bgColors: ["#1c2a3a","#2d4a6b","#3d6080"], skyStars: true,
+    bgColors: ["#0a1628","#1a3a5c","#2a6090"], skyStars: true,
     groundColor: "#e8f4f8", groundTop: "#ffffff",
     platformColor: "#b0d4e8", platformTopColor: "#ddeeff",
     iceFloor: true,  // floor is slippery
@@ -166,7 +168,7 @@ const LEVEL_DEFS = [
 {
     name: "Forêt Tropicale", levelWidth: 2800,
     theme: "jungle",
-    bgColors: ["#0d1f0d","#1a3a1a","#143020"], skyStars: false,
+    bgColors: ["#071a07","#0f3320","#1a5530"], skyStars: false,
     groundColor: "#1a3010", groundTop: "#2a5018",
     platformColor: "#3a6020", platformTopColor: "#5a8030",
     wind: 1.2,      // horizontal push
@@ -201,7 +203,7 @@ const LEVEL_DEFS = [
 {
     name: "Volcan en Furie", levelWidth: 2800,
     theme: "volcano",
-    bgColors: ["#1a0000","#3a0800","#5a1000"], skyStars: false,
+    bgColors: ["#150000","#420500","#7a0e00"], skyStars: false,
     groundColor: "#2a0800", groundTop: "#4a1000",
     platformColor: "#4a2010", platformTopColor: "#6a3010",
     lavaRivers: [
@@ -234,7 +236,7 @@ const LEVEL_DEFS = [
 {
     name: "Lagon Submergé", levelWidth: 2800,
     theme: "water",
-    bgColors: ["#001830","#002848","#003860"], skyStars: false,
+    bgColors: ["#000d20","#001e45","#003070"], skyStars: false,
     groundColor: "#001020", groundTop: "#002030",
     platformColor: "#0a3050", platformTopColor: "#1a5070",
     waterZones: [
@@ -267,7 +269,7 @@ const LEVEL_DEFS = [
 {
     name: "Grottes Profondes", levelWidth: 2600,
     theme: "cave",
-    bgColors: ["#050508","#0a0a10","#0f0f18"], skyStars: false,
+    bgColors: ["#080810","#101018","#181825"], skyStars: false,
     groundColor: "#1a1a22", groundTop: "#2a2a35",
     platformColor: "#2a2a38", platformTopColor: "#3a3a50",
     stalactites: true,
@@ -297,7 +299,7 @@ const LEVEL_DEFS = [
 {
     name: "Royaume des Nuages", levelWidth: 3000,
     theme: "sky",
-    bgColors: ["#87ceeb","#aaddff","#c8eeff"], skyStars: false,
+    bgColors: ["#5ab8f5","#82cfff","#b0e8ff"], skyStars: false,
     groundColor: "#e0f0ff", groundTop: "#ffffff",
     platformColor: "#e8f8ff", platformTopColor: "#ffffff",
     cloudPlatforms: true,  // platforms look like clouds
@@ -333,7 +335,7 @@ const LEVEL_DEFS = [
 {
     name: "Désert Brûlant", levelWidth: 2800,
     theme: "desert",
-    bgColors: ["#4a2800","#7a4800","#aa6800"], skyStars: false,
+    bgColors: ["#3d1f00","#6b3a00","#a05800"], skyStars: false,
     groundColor: "#c8a050", groundTop: "#e0b860",
     platformColor: "#a07040", platformTopColor: "#c09050",
     sandstorm: true,
@@ -363,7 +365,7 @@ const LEVEL_DEFS = [
 {
     name: "Manoir Hanté", levelWidth: 2800,
     theme: "haunted",
-    bgColors: ["#050010","#0a0020","#100030"], skyStars: true,
+    bgColors: ["#080015","#12002e","#200050"], skyStars: true,
     groundColor: "#100820", groundTop: "#1a1030",
     platformColor: "#1a1030", platformTopColor: "#2a2040",
     ghosts: [
@@ -395,7 +397,7 @@ const LEVEL_DEFS = [
 {
     name: "NIVEAU FINAL", levelWidth: 3200,
     theme: "final",
-    bgColors: ["#000010","#000030","#000050"], skyStars: true,
+    bgColors: ["#05001a","#0a0035","#150060"], skyStars: true,
     groundColor: "#100030", groundTop: "#200050",
     platformColor: "#200040", platformTopColor: "#400080",
     rainbow: true,
@@ -1298,8 +1300,8 @@ function drawEnemies(){
         if(rx>GAME_W+10||rx+e.w<-10)continue;
         ctx.fillStyle="rgba(0,0,0,0.2)";
         ctx.beginPath();ctx.ellipse(rx+15,e.y+e.h+3,15,4,0,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle="#e53935";ctx.fillRect(rx,e.y,e.w,e.h);
-        ctx.fillStyle="#b71c1c";ctx.fillRect(rx+2,e.y+2,e.w-4,e.h-4);
+        ctx.fillStyle="#7b1fa2";ctx.fillRect(rx,e.y,e.w,e.h);
+        ctx.fillStyle="#6a0080";ctx.fillRect(rx+2,e.y+2,e.w-4,e.h-4);
         ctx.fillStyle="#fff176";
         ctx.fillRect(rx+4,e.y+6,7,6);ctx.fillRect(rx+19,e.y+6,7,6);
         ctx.fillStyle="#000";
@@ -1307,7 +1309,7 @@ function drawEnemies(){
         ctx.fillRect(rx+4+po,e.y+8,4,4);ctx.fillRect(rx+19+po,e.y+8,4,4);
         const ls=Math.sin(t*e.spd*e.dir)*5;
         ctx.fillStyle="#c62828";
-        ctx.fillRect(rx+4,e.y+e.h,8,4+ls);ctx.fillRect(rx+18,e.y+e.h,8,4-ls);
+        ctx.fillStyle="#9c27b0";ctx.fillRect(rx+4,e.y+e.h,8,4+ls);ctx.fillRect(rx+18,e.y+e.h,8,4-ls);
     }
 }
 
@@ -1387,7 +1389,7 @@ function drawPlayer(){
     ctx.ellipse(sx(player.x)+player.width/2,player.y+player.height+2,dw*0.5,4,0,0,Math.PI*2);ctx.fill();
 
     const bg=ctx.createLinearGradient(dx,dy,dx+dw,dy+dh);
-    bg.addColorStop(0,"#ff7070");bg.addColorStop(1,"#c62828");
+    bg.addColorStop(0,"#ff4444");bg.addColorStop(1,"#cc0000");
     ctx.fillStyle=bg;
     ctx.beginPath();
     if(ctx.roundRect)ctx.roundRect(dx,dy,dw,dh,6*player.sx);
@@ -1650,6 +1652,23 @@ document.addEventListener('keydown', () => {
         // touch overlay matches canvas size automatically via position:absolute
     };
 })();
+
+// Tap canvas to restart on mobile (game over / win screens)
+canvas.addEventListener("touchstart", e => {
+    if (!gameOver && !gameWon) return;
+    const touch = e.touches[0];
+    const rect  = canvas.getBoundingClientRect();
+    const scaleX = GAME_W / rect.width;
+    const scaleY = GAME_H / rect.height;
+    const tx = (touch.clientX - rect.left) * scaleX;
+    const ty = (touch.clientY - rect.top)  * scaleY;
+    // Hit area of the restart button drawn on canvas
+    const btnY = gameWon ? GAME_H/2+85 : GAME_H/2+60;
+    if(tx > GAME_W/2-90 && tx < GAME_W/2+90 && ty > btnY && ty < btnY+44){
+        e.preventDefault();
+        restartGame();
+    }
+}, { passive: false });
 
 // ── Démarrage du jeu ─────────────────────────────────────────────
 const saved = loadProgress();
