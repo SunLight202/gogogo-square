@@ -1446,8 +1446,7 @@ function drawLevelComplete(){
     ctx.textAlign="left";
 }
 function drawGameWon(){
-    ctx.fillStyle="rgba(0,0,0,0.85)";ctx.fillRect(0,0,GAME_W,GAME_H);
-    // Rainbow
+    ctx.fillStyle="rgba(0,0,0,0.8)";ctx.fillRect(0,0,GAME_W,GAME_H);
     for(let i=0;i<7;i++){
         ctx.strokeStyle=`hsl(${i*52},100%,60%)`;ctx.lineWidth=8;
         ctx.beginPath();ctx.arc(GAME_W/2,GAME_H+20,180+i*20,-Math.PI,0);ctx.stroke();
@@ -1455,20 +1454,40 @@ function drawGameWon(){
     ctx.textAlign="center";
     const hue=((Date.now()/600)*60)%360;
     ctx.font="bold 52px 'Press Start 2P'";ctx.fillStyle=`hsl(${hue},100%,65%)`;
-    ctx.fillText("VICTOIRE !",GAME_W/2,GAME_H/2-40);
+    ctx.fillText("VICTOIRE !",GAME_W/2,GAME_H/2-50);
     ctx.font="12px 'Press Start 2P'";ctx.fillStyle="white";
-    ctx.fillText("10 niveaux terminés !",GAME_W/2,GAME_H/2+15);
+    ctx.fillText("10 niveaux terminés !",GAME_W/2,GAME_H/2+5);
+    const isMob=window.matchMedia("(hover:none) and (pointer:coarse)").matches;
     ctx.font="9px 'Press Start 2P'";ctx.fillStyle="#aaa";
-    ctx.fillText("R pour rejouer",GAME_W/2,GAME_H/2+60);
+    ctx.fillText(isMob?"Appuie sur Restart":"R pour rejouer",GAME_W/2,GAME_H/2+35);
+    // Big tap button
+    const bx=GAME_W/2-100, by=GAME_H/2+50, bw=200, bh=50;
+    ctx.fillStyle="rgba(241,196,15,0.9)";
+    ctx.beginPath();
+    if(ctx.roundRect) ctx.roundRect(bx,by,bw,bh,12);
+    else ctx.rect(bx,by,bw,bh);
+    ctx.fill();
+    ctx.fillStyle="#1a1a2e";ctx.font="bold 11px 'Press Start 2P'";
+    ctx.fillText("↺  REJOUER",GAME_W/2,by+bh/2+5);
     ctx.textAlign="left";
 }
 function drawGameOver(){
     ctx.fillStyle="rgba(0,0,0,0.85)";ctx.fillRect(0,0,GAME_W,GAME_H);
     ctx.textAlign="center";
     ctx.font="bold 52px 'Press Start 2P'";ctx.fillStyle="#e53935";
-    ctx.fillText("GAME OVER",GAME_W/2,GAME_H/2-30);
-    ctx.font="11px 'Press Start 2P'";ctx.fillStyle="#aaa";
-    ctx.fillText("R pour recommencer",GAME_W/2,GAME_H/2+35);
+    ctx.fillText("GAME OVER",GAME_W/2,GAME_H/2-40);
+    const isMob=window.matchMedia("(hover:none) and (pointer:coarse)").matches;
+    ctx.font="10px 'Press Start 2P'";ctx.fillStyle="#aaa";
+    ctx.fillText(isMob?"Appuie sur Restart":"R pour recommencer",GAME_W/2,GAME_H/2+10);
+    // Big tap button on mobile
+    const bx=GAME_W/2-100, by=GAME_H/2+30, bw=200, bh=50;
+    ctx.fillStyle="rgba(229,57,53,0.9)";
+    ctx.beginPath();
+    if(ctx.roundRect) ctx.roundRect(bx,by,bw,bh,12);
+    else ctx.rect(bx,by,bw,bh);
+    ctx.fill();
+    ctx.fillStyle="white";ctx.font="bold 11px 'Press Start 2P'";
+    ctx.fillText("↺  REJOUER",GAME_W/2,by+bh/2+5);
     ctx.textAlign="left";
 }
 
@@ -1662,9 +1681,9 @@ canvas.addEventListener("touchstart", e => {
     const scaleY = GAME_H / rect.height;
     const tx = (touch.clientX - rect.left) * scaleX;
     const ty = (touch.clientY - rect.top)  * scaleY;
-    // Hit area of the restart button drawn on canvas
-    const btnY = gameWon ? GAME_H/2+85 : GAME_H/2+60;
-    if(tx > GAME_W/2-90 && tx < GAME_W/2+90 && ty > btnY && ty < btnY+44){
+    // Match the button positions drawn in drawGameOver / drawGameWon
+    const btnY = gameWon ? GAME_H/2+50 : GAME_H/2+30;
+    if(tx > GAME_W/2-100 && tx < GAME_W/2+100 && ty > btnY && ty < btnY+50){
         e.preventDefault();
         restartGame();
     }
