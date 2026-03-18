@@ -1,8 +1,14 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-const GAME_W = 800, GAME_H = 400;
-canvas.width = GAME_W; canvas.height = GAME_H;
+// 1. Dimensions Dynamiques (On lâche le 800x400 rigide)
+let GAME_W = 800;
+let GAME_H = 400;
+
+function CW() { return GAME_W; }
+function CH() { return Math.max(GAME_H, 400); }
+// On fige le sol absolu à 350 pour que tes plateformes restent à la bonne hauteur !
+function FLOOR() { return 350; }
 
 function lerp(a, b, t) { return a + (b - a) * t; }
 function clamp(v, mn, mx) { return Math.max(mn, Math.min(mx, v)); }
@@ -15,10 +21,9 @@ window.addEventListener("keydown", e => {
     if (["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Space"].includes(e.code)) e.preventDefault();
 }, { passive: false });
 
-// Prevent page scroll/zoom/bounce on mobile
 document.addEventListener("touchmove", e => e.preventDefault(), { passive: false });
 document.addEventListener("touchstart", e => {
-    if (e.touches.length > 1) e.preventDefault(); // no pinch zoom
+    if (e.touches.length > 1) e.preventDefault();
 }, { passive: false });
 document.querySelectorAll("button").forEach(btn => {
     btn.addEventListener("mousedown", e => e.preventDefault());
@@ -29,66 +34,53 @@ document.querySelectorAll("button").forEach(btn => {
     });
 });
 
-// ── Fullscreen ─────────────────────────────────────────────────────
+// ── Fullscreen & Responsive (Le correctif HD et plein écran) ────────
+let dpr = window.devicePixelRatio || 1;
+
 function resizeCanvas() {
     const isFS     = !!document.fullscreenElement;
     const isMobile = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
 
-    if (isMobile) {
-        // On mobile, first render the touch bar at its natural size,
-        // then use whatever height is left for the canvas.
-        const hud   = document.getElementById("hud");
-        const touch = document.getElementById("touch-controls");
+    const hud   = document.getElementById("hud");
+    const touch = document.getElementById("touch-controls");
 
-        // Let the touch bar size itself naturally first
-        if (touch) { touch.style.height = ""; }
+    const hudH   = hud ? hud.offsetHeight : 0;
+    const touchH = (isMobile && touch && getComputedStyle(touch).display !== 'none') ? touch.offsetHeight : 0;
 
-        const screenW = window.innerWidth;
-        const screenH = window.innerHeight
-                     || document.documentElement.clientHeight;
-        const hudH    = hud   ? hud.getBoundingClientRect().height   : 0;
-        const touchH  = touch ? touch.getBoundingClientRect().height : 100;
+    const availW = window.innerWidth;
+    const availH = window.innerHeight - (isFS ? 0 : hudH) - touchH;
 
-        const availW = screenW;
-        // Give touch bar a fixed budget so canvas gets maximum space
-        const touchBudget = Math.min(touchH, screenH * 0.15);
-        const availH = screenH - hudH - touchBudget;
-
-        // Scale canvas to fill available area while keeping 2:1 ratio
-        const scale = Math.min(availW / GAME_W, availH / GAME_H);
-        const w = Math.floor(GAME_W * scale);
-        const h = Math.floor(GAME_H * scale);
-
-        canvas.style.width  = w + "px";
-        canvas.style.height = h + "px";
-
-        // Game container fills available height so canvas is centered
-        const gc = document.getElementById("game-container");
-        if (gc) {
-            gc.style.width  = screenW + "px";
-            gc.style.height = availH + "px";
-        }
-
-    } else if (isFS) {
-        const hudH   = document.getElementById("hud").offsetHeight;
-        const availH = window.innerHeight - hudH;
-        const scale  = Math.min(window.innerWidth / GAME_W, availH / GAME_H);
-        const w = Math.floor(GAME_W * scale);
-        const h = Math.floor(GAME_H * scale);
-        canvas.style.width  = w + "px";
-        canvas.style.height = h + "px";
-        document.getElementById("hud").style.width = w + "px";
-        const gc = document.getElementById("game-container");
-        if (gc) { gc.style.width = w + "px"; gc.style.height = h + "px"; }
-
+    // A. Aspect Ratio Dynamique (Fini les bandes noires !)
+    if (availW > availH) {
+        // Mode Paysage : on bloque la hauteur, on élargit le champ de vision
+        GAME_H = 400;
+        GAME_W = availW * (GAME_H / availH);
     } else {
-        canvas.style.width  = GAME_W + "px";
-        canvas.style.height = GAME_H + "px";
-        document.getElementById("hud").style.width = "";
-        const gc = document.getElementById("game-container");
-        if (gc) { gc.style.width = ""; gc.style.height = ""; }
+        // Mode Portrait : on garde une largeur de base, et on affiche plus de ciel et de sous-sol
+        GAME_W = 600;
+        GAME_H = availH * (GAME_W / availW);
     }
+
+    // B. Haute Définition via DevicePixelRatio (Fini le jeu pixelisé !)
+    dpr = window.devicePixelRatio || 1;
+    canvas.width  = GAME_W * dpr;
+    canvas.height = GAME_H * dpr;
+
+    // C. Étirement de l'interface (Prend toute la place de l'écran)
+    canvas.style.width  = availW + "px";
+    canvas.style.height = availH + "px";
+
+    // Application du zoom net sur le contexte de dessin
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const wrapper = document.getElementById("wrapper");
+    if (wrapper) wrapper.style.width = "100%";
+    if (hud) hud.style.width = "100%";
+
+    const gc = document.getElementById("game-container");
+    if (gc) { gc.style.width = availW + "px"; gc.style.height = availH + "px"; }
 }
+
 document.getElementById("btn-fullscreen").addEventListener("click", () => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
     else document.exitFullscreen();
@@ -96,22 +88,17 @@ document.getElementById("btn-fullscreen").addEventListener("click", () => {
 });
 document.addEventListener("fullscreenchange", resizeCanvas);
 window.addEventListener("resize", resizeCanvas);
-resizeCanvas();
-
-// ══════════════════════════════════════════════════════════════════
-// LEVEL DEFINITIONS
-// Each level has: meta + platforms + coins + enemies + goal + special
-// ══════════════════════════════════════════════════════════════════
-const FLOOR_Y = 350;
+window.addEventListener("orientationchange", () => setTimeout(resizeCanvas, 200));
+requestAnimationFrame(() => requestAnimationFrame(resizeCanvas));
 
 const LEVEL_DEFS = [
 // ─── 0: PRAIRIE (intro) ────────────────────────────────────────────
 {
     name: "Plaine Verte", levelWidth: 2400,
     theme: "prairie",
-    bgColors: ["#0d0d2b","#1a1060","#2d1b8e"], skyStars: true,
-    groundColor: "#1e6b0a", groundTop: "#5a9e1a",
-    platformColor: "#7a4a20", platformTopColor: "#a06030",
+    bgColors: ["#f5d0a0","#e8a878","#c87850"], skyStars: true,
+    groundColor: "#5a8a20", groundTop: "#7ab028",
+    platformColor: "#c08050", platformTopColor: "#d4a070",
     platforms: [
         {x:150,y:280,w:120,h:20},{x:350,y:200,w:120,h:20},{x:550,y:120,w:100,h:20},
         {x:800,y:240,w:150,h:20},{x:1100,y:170,w:100,h:20},{x:1350,y:110,w:120,h:20},
@@ -136,9 +123,9 @@ const LEVEL_DEFS = [
 {
     name: "Toundra Glacée", levelWidth: 2600,
     theme: "snow",
-    bgColors: ["#0a1628","#1a3a5c","#2a6090"], skyStars: true,
-    groundColor: "#e8f4f8", groundTop: "#ffffff",
-    platformColor: "#b0d4e8", platformTopColor: "#ddeeff",
+    bgColors: ["#eef5fc","#d8eaf8","#c0d8f0"], skyStars: true,
+    groundColor: "#e8f4fc", groundTop: "#ffffff",
+    platformColor: "#b0c8e0", platformTopColor: "#d0e4f0",
     iceFloor: true,  // floor is slippery
     icePlatforms: [3,5,7], // indices that are icy
     snowParticles: true,
@@ -168,9 +155,9 @@ const LEVEL_DEFS = [
 {
     name: "Forêt Tropicale", levelWidth: 2800,
     theme: "jungle",
-    bgColors: ["#071a07","#0f3320","#1a5530"], skyStars: false,
-    groundColor: "#1a3010", groundTop: "#2a5018",
-    platformColor: "#3a6020", platformTopColor: "#5a8030",
+    bgColors: ["#2a5a1a","#1e4212","#12280a"], skyStars: false,
+    groundColor: "#2a5010", groundTop: "#3a7018",
+    platformColor: "#4a7828", platformTopColor: "#6a9840",
     wind: 1.2,      // horizontal push
     rain: true,
     vines: [
@@ -203,9 +190,9 @@ const LEVEL_DEFS = [
 {
     name: "Volcan en Furie", levelWidth: 2800,
     theme: "volcano",
-    bgColors: ["#150000","#420500","#7a0e00"], skyStars: false,
-    groundColor: "#2a0800", groundTop: "#4a1000",
-    platformColor: "#4a2010", platformTopColor: "#6a3010",
+    bgColors: ["#2a0a00","#580c00","#8a1800"], skyStars: false,
+    groundColor: "#2a1008", groundTop: "#481808",
+    platformColor: "#7a3010", platformTopColor: "#a04820",
     lavaRivers: [
         {x:400,y:330,w:120},{x:750,y:330,w:100},{x:1100,y:330,w:150},
         {x:1500,y:330,w:130},{x:1900,y:330,w:110},{x:2200,y:330,w:140}
@@ -236,9 +223,9 @@ const LEVEL_DEFS = [
 {
     name: "Lagon Submergé", levelWidth: 2800,
     theme: "water",
-    bgColors: ["#000d20","#001e45","#003070"], skyStars: false,
-    groundColor: "#001020", groundTop: "#002030",
-    platformColor: "#0a3050", platformTopColor: "#1a5070",
+    bgColors: ["#a0c8e8","#78a8d0","#5080b0"], skyStars: false,
+    groundColor: "#3860a0", groundTop: "#5888c0",
+    platformColor: "#4878b0", platformTopColor: "#6898c8",
     waterZones: [
         {x:300,y:280,w:250,h:70},{x:700,y:260,w:200,h:90},
         {x:1100,y:270,w:300,h:80},{x:1600,y:250,w:250,h:100},
@@ -269,9 +256,9 @@ const LEVEL_DEFS = [
 {
     name: "Grottes Profondes", levelWidth: 2600,
     theme: "cave",
-    bgColors: ["#080810","#101018","#181825"], skyStars: false,
-    groundColor: "#1a1a22", groundTop: "#2a2a35",
-    platformColor: "#2a2a38", platformTopColor: "#3a3a50",
+    bgColors: ["#1a1008","#251810","#301e12"], skyStars: false,
+    groundColor: "#2a1c10", groundTop: "#3a2818",
+    platformColor: "#4a3020", platformTopColor: "#6a4830",
     stalactites: true,
     torches: [{x:300},{x:600},{x:900},{x:1200},{x:1500},{x:1800},{x:2100},{x:2400}],
     platforms: [
@@ -299,8 +286,8 @@ const LEVEL_DEFS = [
 {
     name: "Royaume des Nuages", levelWidth: 3000,
     theme: "sky",
-    bgColors: ["#5ab8f5","#82cfff","#b0e8ff"], skyStars: false,
-    groundColor: "#e0f0ff", groundTop: "#ffffff",
+    bgColors: ["#fde8d8","#f8c8a8","#f0a888"], skyStars: false,
+    groundColor: "#c0e0ff", groundTop: "#ffffff",
     platformColor: "#e8f8ff", platformTopColor: "#ffffff",
     cloudPlatforms: true,  // platforms look like clouds
     birds: [
@@ -335,9 +322,9 @@ const LEVEL_DEFS = [
 {
     name: "Désert Brûlant", levelWidth: 2800,
     theme: "desert",
-    bgColors: ["#3d1f00","#6b3a00","#a05800"], skyStars: false,
-    groundColor: "#c8a050", groundTop: "#e0b860",
-    platformColor: "#a07040", platformTopColor: "#c09050",
+    bgColors: ["#f0c878","#e8a840","#c87820"], skyStars: false,
+    groundColor: "#c8901a", groundTop: "#e0b030",
+    platformColor: "#c08050", platformTopColor: "#d4a070",
     sandstorm: true,
     cacti: [{x:300,h:60},{x:550,h:80},{x:900,h:60},{x:1200,h:70},{x:1600,h:80},{x:2000,h:65},{x:2400,h:75}],
     platforms: [
@@ -365,9 +352,9 @@ const LEVEL_DEFS = [
 {
     name: "Manoir Hanté", levelWidth: 2800,
     theme: "haunted",
-    bgColors: ["#080015","#12002e","#200050"], skyStars: true,
-    groundColor: "#100820", groundTop: "#1a1030",
-    platformColor: "#1a1030", platformTopColor: "#2a2040",
+    bgColors: ["#1a0818","#2a1028","#3a1838"], skyStars: true,
+    groundColor: "#1a0c18", groundTop: "#2a1828",
+    platformColor: "#3a2030", platformTopColor: "#5a3848",
     ghosts: [
         {x:500,y:200,spd:1.5,phase:0,amp:40},{x:900,y:150,spd:1.2,phase:1,amp:50},
         {x:1400,y:180,spd:1.8,phase:2,amp:35},{x:1900,y:160,spd:1.5,phase:0.5,amp:45},
@@ -397,9 +384,9 @@ const LEVEL_DEFS = [
 {
     name: "NIVEAU FINAL", levelWidth: 3200,
     theme: "final",
-    bgColors: ["#05001a","#0a0035","#150060"], skyStars: true,
-    groundColor: "#100030", groundTop: "#200050",
-    platformColor: "#200040", platformTopColor: "#400080",
+    bgColors: ["#0a0510","#18082a","#280a40"], skyStars: true,
+    groundColor: "#100808", groundTop: "#201018",
+    platformColor: "#3a1828", platformTopColor: "#5a2840",
     rainbow: true,
     platforms: [
         {x:150,y:295,w:110,h:20},{x:360,y:230,w:100,h:20},{x:560,y:160,w:90,h:20},
@@ -497,7 +484,7 @@ function updateParticles(){
 
 // Stars background
 const stars=Array.from({length:150},()=>({
-    x:rnd(0,800),y:rnd(0,280),r:rnd(0.3,1.8),
+    x:rnd(0,3000),y:rnd(-1500,400),r:rnd(0.3,1.8),
     alpha:rnd(0.3,0.8),ts:rnd(0.01,0.03),to:rnd(0,Math.PI*2)
 }));
 
@@ -599,11 +586,11 @@ function loadLevel(idx){
     weatherParticles=[];
     if(levelData.snowParticles){
         for(let i=0;i<120;i++)
-            weatherParticles.push({x:rnd(0,800),y:rnd(0,400),spd:rnd(0.5,1.5),drift:rnd(-0.3,0.3),r:rnd(2,5),type:"snow"});
+            weatherParticles.push({x:rnd(0,3000),y:rnd(-1500,400),spd:rnd(0.5,1.5),drift:rnd(-0.3,0.3),r:rnd(2,5),type:"snow"});
     }
     if(levelData.rain){
         for(let i=0;i<180;i++)
-            weatherParticles.push({x:rnd(0,800),y:rnd(0,400),spd:rnd(12,18),len:rnd(8,18),type:"rain"});
+            weatherParticles.push({x:rnd(0,3000),y:rnd(-1500,400),spd:rnd(12,18),len:rnd(8,18),type:"rain"});
     }
 
     lavaParticles=[];
@@ -614,7 +601,7 @@ function loadLevel(idx){
 }
 
 function spawnPlayer(){
-    player.x=50;player.y=280;player.vx=0;player.vy=0;
+    player.x=50;player.y=FLOOR()-player.height-2;player.vx=0;player.vy=0;
     player.isGrounded=false;player.sx=1;player.sy=1;
     player.trail=[];player.invincible=0;
     player.coyoteTimer=0;player.jumpBuffer=0;player.wantsJump=false;player.vineCD=0;
@@ -728,7 +715,7 @@ function update(){
         player.y+=player.vy;
         player.x=clamp(player.x,0,levelData.levelWidth-player.width);
 
-        if(player.y>500){resetToCheckpoint();return;}
+        if(player.y>CH()+100){resetToCheckpoint();return;}
     }
 
     // ── Ground & Platform collision ───────────────────────
@@ -736,9 +723,9 @@ function update(){
     player.onIce=false;
 
     if(player.onVine===null){
-        if(player.y+player.height>=FLOOR_Y){
+        if(player.y+player.height>=FLOOR()){
             if(player.vy>5){player.sx=1.4;player.sy=0.6;}
-            player.y=FLOOR_Y-player.height;player.vy=0;onGround=true;
+            player.y=FLOOR()-player.height;player.vy=0;onGround=true;
             if(levelData.iceFloor)player.onIce=true;
         }
 
@@ -843,7 +830,7 @@ function update(){
     // Lava particles
     if(levelData.lavaParticles&&Math.random()<0.3){
         for(const lr of lavaRivers){
-            if(sx(lr.x)<GAME_W&&sx(lr.x+lr.w)>0){
+            if(sx(lr.x)<CW()&&sx(lr.x+lr.w)>0){
                 lavaParticles.push({
                     x:rnd(lr.x,lr.x+lr.w),y:lr.y,
                     vx:rnd(-0.5,0.5),vy:rnd(-3,-1),
@@ -925,15 +912,16 @@ function update(){
     }
 
     // ── Weather particles ─────────────────────────────────
+    const topY = -(CH() > 400 ? CH() - 400 : 0) - 50; // vrai sommet du ciel
     for(const p of weatherParticles){
         if(p.type==="snow"){
             p.x+=p.drift+(windX*0.5);p.y+=p.spd;
-            if(p.y>420)p.y=-5;
-            if(p.x>820)p.x=-5;if(p.x<-5)p.x=820;
+            if(p.y>420) p.y=topY;
+            if(p.x>CW()+200)p.x=-5;if(p.x<-5)p.x=CW()+200;
         } else if(p.type==="rain"){
             p.x+=windX*0.5+1;p.y+=p.spd;
-            if(p.y>420){p.y=rnd(-20,0);p.x=rnd(0,820);}
-            if(p.x>820)p.x=0;
+            if(p.y>420){p.y=topY;p.x=rnd(0,CW()+200);}
+            if(p.x>CW()+200)p.x=0;
         }
     }
 
@@ -947,7 +935,7 @@ function update(){
     }
 
     // Camera
-    cameraX=clamp(player.x-GAME_W/3,0,levelData.levelWidth-GAME_W);
+    cameraX=clamp(player.x-CW()/3,0,levelData.levelWidth-CW());
 
     updateParticles();
 }
@@ -958,14 +946,14 @@ function update(){
 function sx(worldX){return worldX-cameraX;}
 
 function drawBackground(){
+    let offsetY = CH() > 400 ? CH() - 400 : 0;
     const c=levelData.bgColors;
-    const g=ctx.createLinearGradient(0,0,0,GAME_H);
+    const g=ctx.createLinearGradient(0,-offsetY,0,400);
     g.addColorStop(0,c[0]);g.addColorStop(0.6,c[1]);g.addColorStop(1,c[2]);
-    ctx.fillStyle=g;ctx.fillRect(0,0,GAME_W,GAME_H);
+    ctx.fillStyle=g;ctx.fillRect(0,-offsetY,CW(),400+offsetY);
 
     const theme=levelData.theme;
 
-    // Stars
     if(levelData.skyStars){
         for(const s of stars){
             const tw=0.5+0.5*Math.sin(starTime*s.ts*60+s.to);
@@ -974,23 +962,19 @@ function drawBackground(){
             ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();
         }
         ctx.globalAlpha=1;
-    }
-
-    // Theme-specific backgrounds
-    if(theme==="volcano"){
-        const lg=ctx.createRadialGradient(GAME_W/2,GAME_H,0,GAME_W/2,GAME_H,GAME_H*0.9);
-        lg.addColorStop(0,"rgba(255,80,0,0.4)");lg.addColorStop(1,"rgba(0,0,0,0)");
-        ctx.fillStyle=lg;ctx.fillRect(0,0,GAME_W,GAME_H);
-        // Volcano silhouette
-        const vx=sx(1400);
-        ctx.fillStyle="#1a0500";
-        ctx.beginPath();ctx.moveTo(vx-200,FLOOR_Y);ctx.lineTo(vx,FLOOR_Y-200);ctx.lineTo(vx+200,FLOOR_Y);ctx.fill();
-        // Crater glow
-        ctx.fillStyle="rgba(255,100,0,0.3)";
-        ctx.beginPath();ctx.ellipse(vx,FLOOR_Y-195,40,15,0,0,Math.PI*2);ctx.fill();
+    } else {
+        const lg=ctx.createRadialGradient(CW()/2,400,0,CW()/2,400,400);
+        if(theme==="volcano"){
+            lg.addColorStop(0,"rgba(255,80,0,0.4)");lg.addColorStop(1,"rgba(0,0,0,0)");
+            ctx.fillStyle=lg;ctx.fillRect(0,-offsetY,CW(),400+offsetY);
+            const vx=sx(1400);
+            ctx.fillStyle="#1a0500";
+            ctx.beginPath();ctx.moveTo(vx-200,FLOOR());ctx.lineTo(vx,FLOOR()-200);ctx.lineTo(vx+200,FLOOR());ctx.fill();
+            ctx.fillStyle="rgba(255,100,0,0.3)";
+            ctx.beginPath();ctx.ellipse(vx,FLOOR()-195,40,15,0,0,Math.PI*2);ctx.fill();
+        }
     }
     if(theme==="haunted"){
-        // Moon
         ctx.fillStyle="rgba(220,220,180,0.9)";
         ctx.beginPath();ctx.arc(650,60,35,0,Math.PI*2);ctx.fill();
         ctx.fillStyle="rgba(180,180,150,0.4)";
@@ -999,34 +983,26 @@ function drawBackground(){
     if(theme==="final"&&levelData.rainbow){
         const rx=sx(3150/2);
         for(let i=0;i<7;i++){
-            ctx.strokeStyle=`hsla(${i*50},100%,60%,0.15)`;
-            ctx.lineWidth=18;
-            ctx.beginPath();
-            ctx.arc(rx,FLOOR_Y+50,250+i*20,-Math.PI,0);
-            ctx.stroke();
+            ctx.strokeStyle=`hsla(${i*50},100%,60%,0.15)`;ctx.lineWidth=18;
+            ctx.beginPath();ctx.arc(rx,FLOOR()+50,250+i*20,-Math.PI,0);ctx.stroke();
         }
     }
     if(theme==="cave"){
-        // Stalactites
         ctx.fillStyle="#1a1a22";
         for(let i=0;i<20;i++){
             const bx=(i*140+50)-cameraX*0.5;
             const bh=30+Math.sin(i*2.3)*20;
             ctx.beginPath();
-            ctx.moveTo(bx,0);ctx.lineTo(bx-12,bh);ctx.lineTo(bx+12,bh);ctx.fill();
+            ctx.moveTo(bx,-offsetY);ctx.lineTo(bx-12,bh);ctx.lineTo(bx+12,bh);ctx.fill();
         }
     }
     if(theme==="sky"){
-        // Fluffy cloud BG layer
         ctx.fillStyle="rgba(255,255,255,0.08)";
         for(let i=0;i<6;i++){
-            const bx=((i*280+120)-cameraX*0.2+GAME_W*2)%( GAME_W*2)-GAME_W*0.5;
-            ctx.beginPath();
-            ctx.ellipse(bx,80+i*30,90,30,0,0,Math.PI*2);ctx.fill();
+            const bx=((i*280+120)-cameraX*0.2+CW()*2)%(CW()*2)-CW()*0.5;
+            ctx.beginPath();ctx.ellipse(bx,80+i*30,90,30,0,0,Math.PI*2);ctx.fill();
         }
     }
-
-    // Clouds (parallax 30%)
     const clouds=levelData.clouds||[];
     for(const c of clouds){
         const rx=c.x-cameraX*0.3;
@@ -1042,35 +1018,31 @@ function drawBackground(){
 
 function drawGround(){
     ctx.fillStyle=levelData.groundColor;
-    ctx.fillRect(0,FLOOR_Y,GAME_W,GAME_H-FLOOR_Y);
+    ctx.fillRect(0,FLOOR(),CW(),800);
     ctx.fillStyle=levelData.groundTop;
-    ctx.fillRect(0,FLOOR_Y,GAME_W,8);
+    ctx.fillRect(0,FLOOR(),CW(),8);
 
     const theme=levelData.theme;
     if(theme==="snow"){
-        // Snow drifts
         for(let i=0;i<12;i++){
             const bx=(i*120+80)-cameraX%120;
             ctx.fillStyle="rgba(255,255,255,0.6)";
-            ctx.beginPath();ctx.ellipse(bx,FLOOR_Y+4,40+i%3*10,10,0,0,Math.PI*2);ctx.fill();
+            ctx.beginPath();ctx.ellipse(bx,FLOOR()+4,40+i%3*10,10,0,0,Math.PI*2);ctx.fill();
         }
     }
     if(theme==="cave"){
-        // Grid
         ctx.strokeStyle="rgba(255,255,255,0.04)";ctx.lineWidth=1;
         const t=40,off=cameraX%t;
-        for(let x=-off;x<GAME_W;x+=t){ctx.beginPath();ctx.moveTo(x,FLOOR_Y);ctx.lineTo(x,GAME_H);ctx.stroke();}
+        for(let x=-off;x<CW();x+=t){ctx.beginPath();ctx.moveTo(x,FLOOR());ctx.lineTo(x,800);ctx.stroke();}
     }
     if(theme==="desert"){
-        // Sand ripples
         ctx.strokeStyle="rgba(180,160,80,0.3)";ctx.lineWidth=1;
         for(let i=0;i<6;i++){
-            const ry=FLOOR_Y+12+i*6;
+            const ry=FLOOR()+12+i*6;
             const off=cameraX*0.4%80;
             ctx.beginPath();
-            for(let x=0;x<GAME_W+80;x+=80){
-                ctx.moveTo(x-off,ry);
-                ctx.quadraticCurveTo(x-off+20,ry-4,x-off+40,ry);
+            for(let x=0;x<CW()+80;x+=80){
+                ctx.moveTo(x-off,ry);ctx.quadraticCurveTo(x-off+20,ry-4,x-off+40,ry);
             }
             ctx.stroke();
         }
@@ -1196,16 +1168,16 @@ function drawSpecials(){
             const rx=sx(torch.x);
             if(Math.abs(rx)>GAME_W+20)continue;
             // Base
-            ctx.fillStyle="#5a3a1a";ctx.fillRect(rx-4,FLOOR_Y-30,8,30);
+            ctx.fillStyle="#5a3a1a";ctx.fillRect(rx-4,FLOOR()-30,8,30);
             // Flame
             ctx.shadowColor="rgba(255,150,0,0.9)";ctx.shadowBlur=20;
-            const fg=ctx.createRadialGradient(rx,FLOOR_Y-38,0,rx,FLOOR_Y-30,16);
+            const fg=ctx.createRadialGradient(rx,FLOOR()-38,0,rx,FLOOR()-30,16);
             fg.addColorStop(0,`rgba(255,${200+Math.sin(ft)*30},0,0.95)`);
             fg.addColorStop(0.5,`rgba(255,${80+Math.sin(ft+1)*20},0,0.7)`);
             fg.addColorStop(1,"rgba(255,0,0,0)");
             ctx.fillStyle=fg;
             ctx.beginPath();
-            ctx.ellipse(rx+Math.sin(ft)*2,FLOOR_Y-38,8,14,Math.sin(ft)*0.2,0,Math.PI*2);
+            ctx.ellipse(rx+Math.sin(ft)*2,FLOOR()-38,8,14,Math.sin(ft)*0.2,0,Math.PI*2);
             ctx.fill();
             ctx.shadowBlur=0;
         }
@@ -1217,9 +1189,9 @@ function drawSpecials(){
             const rx=sx(c.x);
             if(Math.abs(rx)>GAME_W+20)continue;
             ctx.fillStyle="#3a6020";
-            ctx.fillRect(rx-6,FLOOR_Y-c.h,12,c.h);
-            ctx.fillRect(rx-20,FLOOR_Y-c.h*0.6,14,8);
-            ctx.fillRect(rx+6,FLOOR_Y-c.h*0.7,14,8);
+            ctx.fillRect(rx-6,FLOOR()-c.h,12,c.h);
+            ctx.fillRect(rx-20,FLOOR()-c.h*0.6,14,8);
+            ctx.fillRect(rx+6,FLOOR()-c.h*0.7,14,8);
         }
     }
 
@@ -1280,14 +1252,14 @@ function drawCoins(){
         if(rx<-20||rx>GAME_W+20)continue;
         const bob=Math.sin(t+i*1.2)*3,cy=coin.y+bob,r=10;
         const grd=ctx.createRadialGradient(rx,cy,0,rx,cy,r*2);
-        grd.addColorStop(0,"rgba(255,220,60,0.5)");grd.addColorStop(1,"rgba(255,200,0,0)");
+        grd.addColorStop(0,"rgba(210,160,60,0.6)");grd.addColorStop(1,"rgba(190,130,30,0)");
         ctx.fillStyle=grd;ctx.beginPath();ctx.arc(rx,cy,r*2,0,Math.PI*2);ctx.fill();
         const sh=Math.sin(t*2+i)*0.5+0.5;
         const cg=ctx.createRadialGradient(rx-3,cy-3,1,rx,cy,r);
-        cg.addColorStop(0,`hsl(${50+sh*10},100%,${75+sh*10}%)`);
-        cg.addColorStop(1,"hsl(40,100%,45%)");
+        cg.addColorStop(0,"#e8c878");
+        cg.addColorStop(1,"#c9943a");
         ctx.fillStyle=cg;ctx.beginPath();ctx.arc(rx,cy,r,0,Math.PI*2);ctx.fill();
-        ctx.strokeStyle="rgba(255,255,255,0.5)";ctx.lineWidth=1.5;
+        ctx.strokeStyle="rgba(255,240,200,0.6)";ctx.lineWidth=1.5;
         ctx.beginPath();ctx.arc(rx,cy,r*0.6,0,Math.PI*2);ctx.stroke();
     }
 }
@@ -1300,8 +1272,8 @@ function drawEnemies(){
         if(rx>GAME_W+10||rx+e.w<-10)continue;
         ctx.fillStyle="rgba(0,0,0,0.2)";
         ctx.beginPath();ctx.ellipse(rx+15,e.y+e.h+3,15,4,0,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle="#7b1fa2";ctx.fillRect(rx,e.y,e.w,e.h);
-        ctx.fillStyle="#6a0080";ctx.fillRect(rx+2,e.y+2,e.w-4,e.h-4);
+        ctx.fillStyle="#7a4520";ctx.fillRect(rx,e.y,e.w,e.h);
+        ctx.fillStyle="#5a3010";ctx.fillRect(rx+2,e.y+2,e.w-4,e.h-4);
         ctx.fillStyle="#fff176";
         ctx.fillRect(rx+4,e.y+6,7,6);ctx.fillRect(rx+19,e.y+6,7,6);
         ctx.fillStyle="#000";
@@ -1309,7 +1281,7 @@ function drawEnemies(){
         ctx.fillRect(rx+4+po,e.y+8,4,4);ctx.fillRect(rx+19+po,e.y+8,4,4);
         const ls=Math.sin(t*e.spd*e.dir)*5;
         ctx.fillStyle="#c62828";
-        ctx.fillStyle="#9c27b0";ctx.fillRect(rx+4,e.y+e.h,8,4+ls);ctx.fillRect(rx+18,e.y+e.h,8,4-ls);
+        ctx.fillStyle="#8a5028";ctx.fillRect(rx+4,e.y+e.h,8,4+ls);ctx.fillRect(rx+18,e.y+e.h,8,4-ls);
     }
 }
 
@@ -1334,7 +1306,7 @@ function drawWeather(){
         for(let i=0;i<30;i++){
             const sy=50+i*12;
             const sw=100+Math.sin(st+i)*50;
-            const sx2=((st*150+i*200)%(GAME_W+300))-150;
+            const sx2=((st*150+i*200)%(CW()+300))-150;
             ctx.beginPath();ctx.moveTo(sx2,sy);ctx.lineTo(sx2+sw,sy);ctx.stroke();
         }
     }
@@ -1389,7 +1361,7 @@ function drawPlayer(){
     ctx.ellipse(sx(player.x)+player.width/2,player.y+player.height+2,dw*0.5,4,0,0,Math.PI*2);ctx.fill();
 
     const bg=ctx.createLinearGradient(dx,dy,dx+dw,dy+dh);
-    bg.addColorStop(0,"#ff4444");bg.addColorStop(1,"#cc0000");
+    bg.addColorStop(0,"#f04870");bg.addColorStop(1,"#e8204a");
     ctx.fillStyle=bg;
     ctx.beginPath();
     if(ctx.roundRect)ctx.roundRect(dx,dy,dw,dh,6*player.sx);
@@ -1424,78 +1396,88 @@ function drawPlayer(){
 }
 
 function drawPause(){
-    ctx.fillStyle="rgba(0,0,0,0.65)";ctx.fillRect(0,0,GAME_W,GAME_H);
+    ctx.fillStyle="rgba(0,0,0,0.65)";ctx.fillRect(0,0,CW(),CH());
     ctx.textAlign="center";
     ctx.font="bold 48px 'Press Start 2P'";ctx.fillStyle="#f7c948";
-    ctx.fillText("PAUSE",GAME_W/2,GAME_H/2-30);
+    ctx.fillText("PAUSE",CW()/2,CH()/2-30);
     ctx.font="12px 'Press Start 2P'";ctx.fillStyle="#ccc";
-    ctx.fillText("P ou ESC pour reprendre",GAME_W/2,GAME_H/2+20);
+    ctx.fillText("P ou ESC pour reprendre",CW()/2,CH()/2+20);
     ctx.textAlign="left";
 }
 function drawLevelComplete(){
     const t=levelCompleteTimer/120;
-    ctx.fillStyle=`rgba(0,0,0,${Math.min(t*1.5,0.7)})`;ctx.fillRect(0,0,GAME_W,GAME_H);
+    ctx.fillStyle=`rgba(0,0,0,${Math.min(t*1.5,0.7)})`;ctx.fillRect(0,0,CW(),CH());
     ctx.textAlign="center";
     ctx.font="bold 36px 'Press Start 2P'";
     ctx.fillStyle=`hsl(${50+Math.sin(Date.now()/200)*15},100%,65%)`;
-    ctx.fillText(levelData.name+" ✓",GAME_W/2,GAME_H/2-30);
+    ctx.fillText(levelData.name+" ✓",CW()/2,CH()/2-30);
     if(currentLevel<LEVEL_DEFS.length-1){
         ctx.font="12px 'Press Start 2P'";ctx.fillStyle="white";
-        ctx.fillText("→ "+LEVEL_DEFS[currentLevel+1].name,GAME_W/2,GAME_H/2+25);
+        ctx.fillText("→ "+LEVEL_DEFS[currentLevel+1].name,CW()/2,CH()/2+25);
     }
     ctx.textAlign="left";
 }
 function drawGameWon(){
-    ctx.fillStyle="rgba(0,0,0,0.8)";ctx.fillRect(0,0,GAME_W,GAME_H);
+    ctx.fillStyle="rgba(0,0,0,0.8)";ctx.fillRect(0,0,CW(),CH());
     for(let i=0;i<7;i++){
         ctx.strokeStyle=`hsl(${i*52},100%,60%)`;ctx.lineWidth=8;
-        ctx.beginPath();ctx.arc(GAME_W/2,GAME_H+20,180+i*20,-Math.PI,0);ctx.stroke();
+        ctx.beginPath();ctx.arc(CW()/2,CH()+20,180+i*20,-Math.PI,0);ctx.stroke();
     }
     ctx.textAlign="center";
     const hue=((Date.now()/600)*60)%360;
     ctx.font="bold 52px 'Press Start 2P'";ctx.fillStyle=`hsl(${hue},100%,65%)`;
-    ctx.fillText("VICTOIRE !",GAME_W/2,GAME_H/2-50);
+    ctx.fillText("VICTOIRE !",CW()/2,CH()/2-50);
     ctx.font="12px 'Press Start 2P'";ctx.fillStyle="white";
-    ctx.fillText("10 niveaux terminés !",GAME_W/2,GAME_H/2+5);
+    ctx.fillText("10 niveaux terminés !",CW()/2,CH()/2+5);
     const isMob=window.matchMedia("(hover:none) and (pointer:coarse)").matches;
     ctx.font="9px 'Press Start 2P'";ctx.fillStyle="#aaa";
-    ctx.fillText(isMob?"Appuie sur Restart":"R pour rejouer",GAME_W/2,GAME_H/2+35);
+    ctx.fillText(isMob?"Appuie sur Restart":"R pour rejouer",CW()/2,CH()/2+35);
     // Big tap button
-    const bx=GAME_W/2-100, by=GAME_H/2+50, bw=200, bh=50;
+    const bx=CW()/2-100, by=CH()/2+50, bw=200, bh=50;
     ctx.fillStyle="rgba(241,196,15,0.9)";
     ctx.beginPath();
     if(ctx.roundRect) ctx.roundRect(bx,by,bw,bh,12);
     else ctx.rect(bx,by,bw,bh);
     ctx.fill();
     ctx.fillStyle="#1a1a2e";ctx.font="bold 11px 'Press Start 2P'";
-    ctx.fillText("↺  REJOUER",GAME_W/2,by+bh/2+5);
+    ctx.fillText("↺  REJOUER",CW()/2,by+bh/2+5);
     ctx.textAlign="left";
 }
 function drawGameOver(){
-    ctx.fillStyle="rgba(0,0,0,0.85)";ctx.fillRect(0,0,GAME_W,GAME_H);
+    ctx.fillStyle="rgba(0,0,0,0.85)";ctx.fillRect(0,0,CW(),CH());
     ctx.textAlign="center";
     ctx.font="bold 52px 'Press Start 2P'";ctx.fillStyle="#e53935";
-    ctx.fillText("GAME OVER",GAME_W/2,GAME_H/2-40);
+    ctx.fillText("GAME OVER",CW()/2,CH()/2-40);
     const isMob=window.matchMedia("(hover:none) and (pointer:coarse)").matches;
     ctx.font="10px 'Press Start 2P'";ctx.fillStyle="#aaa";
-    ctx.fillText(isMob?"Appuie sur Restart":"R pour recommencer",GAME_W/2,GAME_H/2+10);
+    ctx.fillText(isMob?"Appuie sur Restart":"R pour recommencer",CW()/2,CH()/2+10);
     // Big tap button on mobile
-    const bx=GAME_W/2-100, by=GAME_H/2+30, bw=200, bh=50;
+    const bx=CW()/2-100, by=CH()/2+30, bw=200, bh=50;
     ctx.fillStyle="rgba(229,57,53,0.9)";
     ctx.beginPath();
     if(ctx.roundRect) ctx.roundRect(bx,by,bw,bh,12);
     else ctx.rect(bx,by,bw,bh);
     ctx.fill();
     ctx.fillStyle="white";ctx.font="bold 11px 'Press Start 2P'";
-    ctx.fillText("↺  REJOUER",GAME_W/2,by+bh/2+5);
+    ctx.fillText("↺  REJOUER",CW()/2,by+bh/2+5);
     ctx.textAlign="left";
 }
 
 // ══════════════════════════════════════════════════════════════════
 // MAIN DRAW
 // ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
+// MAIN DRAW
+// ══════════════════════════════════════════════════════════════════
 function draw(){
-    ctx.clearRect(0,0,GAME_W,GAME_H);
+    ctx.clearRect(0,0,CW(),CH());
+
+    // Offset : aligne le sol en bas de l'écran, ciel infini au-dessus
+    let offsetY = CH() > 400 ? CH() - 400 : 0;
+
+    ctx.save();
+    ctx.translate(0, offsetY);
+
     drawBackground();
     drawGround();
     drawSpecials();
@@ -1506,6 +1488,9 @@ function draw(){
     drawParticles();
     drawWeather();
     drawPlayer();
+
+    ctx.restore(); // annule le décalage pour l'UI
+
     if(levelComplete)drawLevelComplete();
     if(paused&&!gameOver&&!gameWon)drawPause();
     if(gameWon)drawGameWon();
@@ -1677,13 +1662,12 @@ canvas.addEventListener("touchstart", e => {
     if (!gameOver && !gameWon) return;
     const touch = e.touches[0];
     const rect  = canvas.getBoundingClientRect();
-    const scaleX = GAME_W / rect.width;
-    const scaleY = GAME_H / rect.height;
-    const tx = (touch.clientX - rect.left) * scaleX;
-    const ty = (touch.clientY - rect.top)  * scaleY;
-    // Match the button positions drawn in drawGameOver / drawGameWon
-    const btnY = gameWon ? GAME_H/2+50 : GAME_H/2+30;
-    if(tx > GAME_W/2-100 && tx < GAME_W/2+100 && ty > btnY && ty < btnY+50){
+    // Canvas CSS size === canvas internal size on mobile (no scaling)
+    // Map screen touch → game coords (dynamic resolution)
+    const tx = (touch.clientX - rect.left) * (GAME_W / rect.width);
+    const ty = (touch.clientY - rect.top)  * (GAME_H / rect.height);
+    const btnY = gameWon ? CH()/2+50 : CH()/2+30;
+    if(tx > CW()/2-100 && tx < CW()/2+100 && ty > btnY && ty < btnY+50){
         e.preventDefault();
         restartGame();
     }
