@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SuperSaut — Jeu de Plateforme</title>
+    <title>Gogogo Square</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
@@ -12,32 +12,57 @@
     <div id="wrapper">
         <div id="hud">
             <div class="hud-block">
-                <span class="hud-label">PIÈCES</span>
+                <span class="hud-label">
+                    <svg viewBox="0 0 12 12" width="10" height="10" class="hud-icon hud-icon-coin"><circle cx="6" cy="6" r="5" fill="#f7c948" stroke="#c89020" stroke-width="1"/><circle cx="6" cy="6" r="3" fill="none" stroke="#fff8" stroke-width="1"/></svg>
+                    PIÈCES
+                </span>
                 <span id="score-value">0 / 10</span>
             </div>
             <div class="hud-block">
-                <span class="hud-label">NIVEAU</span>
+                <span class="hud-label">
+                    <svg viewBox="0 0 12 12" width="10" height="10" class="hud-icon"><rect x="2" y="1" width="1.5" height="10" fill="#aaa"/><polygon points="3.5,1 10,4 3.5,7" fill="#e74c3c"/></svg>
+                    NIVEAU
+                </span>
                 <span id="level-value">1</span>
             </div>
             <div class="hud-block">
-                <span class="hud-label">VIES</span>
-                <span id="lives-value">❤️❤️❤️</span>
+                <span class="hud-label" id="lives-label">
+                    <svg viewBox="0 0 12 12" width="10" height="10" class="hud-icon hud-icon-heart"><path d="M6 10 C6 10 1 6.5 1 3.5 C1 2 2 1 3.5 1 C4.5 1 5.5 1.8 6 2.8 C6.5 1.8 7.5 1 8.5 1 C10 1 11 2 11 3.5 C11 6.5 6 10 6 10Z" fill="#e74c3c"/></svg>
+                    VIES
+                </span>
+                <span id="lives-value">❤ ×3</span>
             </div>
             <div class="hud-block">
-                <span class="hud-label">BONUS</span>
+                <span class="hud-label">
+                    <svg viewBox="0 0 12 12" width="10" height="10" class="hud-icon"><polygon points="6,1 7.5,4.5 11,4.5 8.5,7 9.5,11 6,8.5 2.5,11 3.5,7 1,4.5 4.5,4.5" fill="#f7c948"/></svg>
+                    BONUS
+                </span>
                 <span id="bonus-value">★0</span>
             </div>
             <div class="hud-actions">
-                <span id="save-indicator" title="Progression sauvegardée">💾</span>
-                <button id="btn-pause" tabindex="-1">⏸ Pause</button>
-                <button id="btn-restart" tabindex="-1">↺ Restart</button>
-                <button id="btn-clear-save" tabindex="-1">🗑 Effacer</button>
-                <button id="btn-fullscreen" tabindex="-1" class="desktop-only">⛶ Plein écran</button>
+                <span id="save-indicator" title="Progression sauvegardée">
+                    <svg viewBox="0 0 14 14" width="14" height="14" class="hud-icon"><rect x="1" y="1" width="12" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="1" width="6" height="5" rx="1" fill="currentColor" opacity="0.7"/><rect x="3" y="8" width="8" height="4" rx="1" fill="currentColor" opacity="0.7"/></svg>
+                </span>
+                <button id="btn-pause" tabindex="-1">
+                    <svg viewBox="0 0 12 12" width="10" height="10"><rect x="2" y="1" width="3" height="10" fill="currentColor"/><rect x="7" y="1" width="3" height="10" fill="currentColor"/></svg>
+                    Pause
+                </button>
+                <button id="btn-restart" tabindex="-1">
+                    <svg viewBox="0 0 12 12" width="10" height="10"><path d="M10 6 A4 4 0 1 1 6 2" fill="none" stroke="currentColor" stroke-width="1.8"/><polygon points="6,0 9,3 6,3" fill="currentColor"/></svg>
+                    Restart
+                </button>
+                <button id="btn-clear-save" tabindex="-1">
+                    <svg viewBox="0 0 12 12" width="10" height="10"><rect x="1" y="3" width="10" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="4" y="1" width="4" height="2" rx="1" fill="currentColor"/><line x1="4" y1="5" x2="4" y2="9" stroke="currentColor" stroke-width="1.5"/><line x1="6" y1="5" x2="6" y2="9" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="5" x2="8" y2="9" stroke="currentColor" stroke-width="1.5"/></svg>
+                    Effacer
+                </button>
+                <button id="btn-fullscreen" tabindex="-1" class="desktop-only">
+                    <svg viewBox="0 0 12 12" width="10" height="10"><polyline points="1,4 1,1 4,1" fill="none" stroke="currentColor" stroke-width="1.5"/><polyline points="8,1 11,1 11,4" fill="none" stroke="currentColor" stroke-width="1.5"/><polyline points="11,8 11,11 8,11" fill="none" stroke="currentColor" stroke-width="1.5"/><polyline points="4,11 1,11 1,8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+                    Plein écran
+                </button>
             </div>
         </div>
 
         <div id="game-container">
-            <!-- SVG filter for barrel distortion -->
         <svg style="position:absolute;width:0;height:0">
           <defs>
             <filter id="crt-barrel">
@@ -47,42 +72,31 @@
           </defs>
         </svg>
         <canvas id="gameCanvas" width="800" height="400"></canvas>
-        <!-- CRT overlay: scanlines + vignette -->
         <div id="crt-overlay"></div>
         </div>
 
-        <!-- Touch controls — outside canvas, always visible on mobile -->
         <div id="touch-controls">
             <div id="touch-left">
                 <div id="btn-left" class="touch-btn">
-  <svg viewBox="0 0 24 24" width="28" height="28" fill="none">
-    <polygon points="17,4 7,12 17,20" fill="currentColor"/>
-  </svg>
-</div>
+                  <svg viewBox="0 0 24 24" width="28" height="28" fill="none"><polygon points="17,4 7,12 17,20" fill="currentColor"/></svg>
+                </div>
                 <div id="btn-right" class="touch-btn">
-  <svg viewBox="0 0 24 24" width="28" height="28" fill="none">
-    <polygon points="7,4 17,12 7,20" fill="currentColor"/>
-  </svg>
-</div>
+                  <svg viewBox="0 0 24 24" width="28" height="28" fill="none"><polygon points="7,4 17,12 7,20" fill="currentColor"/></svg>
+                </div>
             </div>
             <div id="touch-right">
                 <div id="btn-dash" class="touch-btn touch-dash">
-                  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3">
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                    <polyline points="12 5 19 12 12 19"></polyline>
-                  </svg>
+                  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                   <span>DASH</span>
                 </div>
                 <div id="btn-jump" class="touch-btn touch-jump">
-                  <svg viewBox="0 0 24 24" width="30" height="30" fill="none">
-                    <polygon points="12,4 22,20 2,20" fill="currentColor"/>
-                  </svg>
+                  <svg viewBox="0 0 24 24" width="30" height="30" fill="none"><polygon points="12,4 22,20 2,20" fill="currentColor"/></svg>
                   <span>SAUT</span>
                 </div>
             </div>
         </div>
 
-        <div id="controls-hint">← → Déplacer &nbsp;|&nbsp; ESPACE Sauter &nbsp;|&nbsp; P Pause &nbsp;|&nbsp; R Restart</div>
+        <div id="controls-hint">← → Déplacer &nbsp;|&nbsp; ESPACE Sauter &nbsp;|&nbsp; SHIFT Dash &nbsp;|&nbsp; P Pause</div>
     </div>
     <script src="script.js"></script>
 </body>
